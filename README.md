@@ -1,9 +1,9 @@
 SYMON - A 6502 System Simulator
 ===============================
 
-**Version:** 1.3.1
+**Version:** 1.4.0
 
-**Last Updated:** 12 October, 2019
+**Last Updated:** 11 November, 2023
 
 See the file COPYING for license.
 
@@ -25,8 +25,8 @@ Klaus Dormann's 6502 Functional Test Suite as of version 0.8.2
 (See [this thread on the 6502.org Forums](http://forum.6502.org/viewtopic.php?f=2&t=2241)
 for more information about this functional test suite).
 
-Symon is under constant, active development. Feedback and patches
-are always welcome.
+Symon is under active maintenance. Feedback and patches are always
+welcome.
 
 ## 2.0 Requirements
 
@@ -36,9 +36,9 @@ are always welcome.
 
 ## 3.0 Features
 
-Symon can simulate multiple 6502 based architectures. At present, three
-machines are implemented: Symon (the default), MULTICOMP, and a "Simple"
-machine useful for debugging.
+Symon can simulate multiple 6502 based architectures. At present, four
+machines are implemented: Symon (the default), MULTICOMP, BenEater, and
+a "Simple" machine useful for debugging.
 
 ### 3.1 Memory Maps
 
@@ -64,19 +64,41 @@ memory.
 
   - `$0000`--`$FFFF`: 64KB RAM
 
+#### 3.1.4 BenEater Memory Map
+
+  - `$0000`--`$3FFF`: 16KB RAM
+  - `$5000`--`$5003`: MOS 6551 ACIA (Serial Console)
+  - `$6000`--`$600F`: 6522 VIA
+  - `$8000`--`$FFFF`: 16KB ROM
+
 ### 3.2 Serial Console and CPU Status
 
 ![Serial Console](https://github.com/sethm/symon/raw/master/screenshots/console.png)
 
 The main window of the simulator acts as the primary Input/Output
-system through a virtual serial terminal. The terminal is attached to
-a simulated ACIA, including a programmable baud rate generator that
-tries to approximate the correct "feel" of the programmed baud rate.
-(The sample Enhanced BASIC ROM image is programmed for 9600 baud)
+system through a virtual serial terminal. It also provides CPU status.
+Contents of the accumulator, index registers, processor status flags,
+disassembly of the instruction register, and stack pointer are all displayed.
 
-It also provides CPU status. Contents of the accumulator, index
-registers, processor status flags, disassembly of the instruction
-register, and stack pointer are all displayed.
+The terminal is attached to a simulated MOS 6551 ACIA. It behaves very much
+as described in the datasheet, with some exceptions:
+
+  - The simulated ACIA is permanently connected to the virtual terminal,
+    the Data Carrier Detect and Data Set Ready status bits always indicate
+    a connection is ready.
+  - The parity, stop-bits and bits-per-character settings are ignored. The
+    ACIA always sends and receives 8-bit characters, and parity errors
+    do not occur.
+  - The ACIA tries to honour the configured baud rate, but as a special case
+    the default "16x External Clock" rate is interpreted to mean "as fast as
+    possible" (The sample Enhanced BASIC ROM image is programmed for 9600 baud).
+  - The ACIA ignores the configured state of the Data Terminal Ready pin;
+    it is always ready to receive and transmit.
+
+For more information on the MOS 6551 ACIA and its programming model,
+see the official datasheet:
+
+  - [MOS 6551 ACIA](http://archive.6502.org/datasheets/mos_6551_acia.pdf)
 
 ![Font Selection](https://github.com/sethm/symon/raw/master/screenshots/font_selection.png)
 
@@ -198,12 +220,14 @@ interface.
 Two command line options may be passed to the JAR file on startup,
 to specify machine type and CPU type. The options are:
 
-  - `-cpu 6502`: Use the NMOS 6502 CPU type by default.
-  - `-cpu 65c02`: Use the CMOS 65C02 CPU type by default.
-  - `-machine symon`: Use the **Symon** machine type by default.
-  - `-machine multicomp`: Use the **Multicomp** machine type by default.
-  - `-machine simple`: Use the **Simple** machine type by default.
-  - `-rom <file>`: Use the specified file as the ROM image.
+  - `-c`,`-cpu 6502`: Use the NMOS 6502 CPU type by default.
+  - `-c`,`-cpu 65c02`: Use the CMOS 65C02 CPU type by default.
+  - `-c`,`-machine symon`: Use the **Symon** machine type by default.
+  - `-c`,`-machine multicomp`: Use the **Multicomp** machine type by default.
+  - `-m`,`-machine simple`: Use the **Simple** machine type by default.
+  - `-m`,`-machine beneater`: Use the **BenEater** machine type by default.
+  - `-r`,`-rom <file>`: Use the specified file as the ROM image.
+  - `-b`,`-brk`: Halt the simulator on a BRK instruction (default is to continue)
 
 ### 4.2 ROM images
 
@@ -212,10 +236,9 @@ properly. Without a ROM in memory, the simulator will not be able to
 reset, since the reset vector for the 6502 is located in the ROM
 address space.
 
-By default, any file named `rom.bin` that exists in the same directory
-where Symon is launched will be loaded as a ROM image. ROM images can
-also be swapped out at run-time with the "Load ROM Image..." in the
-File menu.
+ROM images can be loaded with the `-rom` argument when running
+Symon from the command line. ROM images can also be swapped out at
+run-time with the "Load ROM..." item in the File menu.
 
 The "samples" directory contains a ROM image for the Symon
 architecture named 'ehbasic.rom', containing Lee Davison's Enhanced
@@ -246,6 +269,16 @@ After loading a program or ROM image, clicking "Run" will start the simulator
 running.
 
 ## 5.0 Revision History
+
+  - **1.4.0:** 11 November 2023 - Adds a new machine, the Ben Eater
+    machine.  Correct handling of 6551 interrupts, and several 6551
+    bug fixes. Fixes power-on status of 6502 status register. Fixes a
+    bug with ASCII backspace character not moving the cursor
+    backwards. Finally, "halt on BRK" is no longer enabled by default,
+    but can be set at runtime or by a command line flag. Thank you to
+    Tim Allen and Chelsea Wilkinson for contributions!
+
+  - **1.3.2:** 8 March 2022 - Minor bug fixes.
 
   - **1.3.1:** 12 October, 2019 - Add support for new command line
     option `-cpu <type>` to specify one of `6502` or `65c02` on startup,
@@ -346,7 +379,12 @@ running.
 
 **Copyright (c) 2014 Seth J. Morabito &lt;web@loomcom.com&gt;**
 
-Portions Copyright (c) 2014 Maik Merten &lt;maikmerten@googlemail.com&gt;
+  - Portions Copyright (c) 2014 Maik Merten 
+    &lt;maikmerten@googlemail.com&gt;
+  - Portions Copyright (c) 2022 Tim Allen 
+    &lt;thristian@gmail.com&gt;
+  - Portions Copyright (c) 2023 Chelsea Wilkinson 
+    &lt;mail@chelseawilkinson.me&gt;
 
 Additional components used in this project are copyright their respective owners.
 

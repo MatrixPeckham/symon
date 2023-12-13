@@ -28,7 +28,7 @@ import com.loomcom.symon.exceptions.MemoryRangeException;
 
 /**
  * This is a simulation of the MOS 6551 ACIA, with limited
- * functionality.  Interrupts are not supported.
+ * functionality.
  * <p/>
  * Unlike a 16550 UART, the 6551 ACIA has only one-byte transmit and
  * receive buffers. It is the programmer's responsibility to check the
@@ -53,6 +53,14 @@ public class Acia6551 extends Acia {
 
     public Acia6551(int address) throws MemoryRangeException {
         super(address, ACIA_SIZE, "ACIA");
+
+        // Figure 6 in the 6551 ACIA data sheet says the "hardware reset"
+        // state of the Control Register is all zeros.
+        setControlRegister(0b00000000);
+        // Figure 7 of the 6551 ACIA data sheet says the "hardware reset"
+        // state of the Command Register is zeros, but Transmitter Control
+        // is set to "interrupt disabled, ready to send".
+        setCommandRegister(0b00000010);
     }
 
     @Override
@@ -74,16 +82,16 @@ public class Acia6551 extends Acia {
     @Override
     public void write(int address, int data) throws MemoryAccessException {
         switch (address) {
-            case 0:
+            case DATA_REG:
                 txWrite(data);
                 break;
-            case 1:
+            case STAT_REG:
                 reset();
                 break;
-            case 2:
+            case CMND_REG:
                 setCommandRegister(data);
                 break;
-            case 3:
+            case CTRL_REG:
                 setControlRegister(data);
                 break;
             default:
@@ -110,67 +118,60 @@ public class Acia6551 extends Acia {
         controlRegister = data;
         int rate = 0;
 
-        // If the value of the data is 0, this is a request to reset,
-        // otherwise it's a control update.
-
-        if (data == 0) {
-            reset();
-        } else {
-            // Mask the lower three bits to get the baud rate.
-            int baudSelector = data & 0x0f;
-            switch (baudSelector) {
-                case 0:
-                    rate = 0;
-                    break;
-                case 1:
-                    rate = 50;
-                    break;
-                case 2:
-                    rate = 75;
-                    break;
-                case 3:
-                    rate = 110; // Real rate is actually 109.92
-                    break;
-                case 4:
-                    rate = 135; // Real rate is actually 134.58
-                    break;
-                case 5:
-                    rate = 150;
-                    break;
-                case 6:
-                    rate = 300;
-                    break;
-                case 7:
-                    rate = 600;
-                    break;
-                case 8:
-                    rate = 1200;
-                    break;
-                case 9:
-                    rate = 1800;
-                    break;
-                case 10:
-                    rate = 2400;
-                    break;
-                case 11:
-                    rate = 3600;
-                    break;
-                case 12:
-                    rate = 4800;
-                    break;
-                case 13:
-                    rate = 7200;
-                    break;
-                case 14:
-                    rate = 9600;
-                    break;
-                case 15:
-                    rate = 19200;
-                    break;
-            }
-
-            setBaudRate(rate);
+        // Mask the lower four bits to get the baud rate.
+        int baudSelector = data & 0x0f;
+        switch (baudSelector) {
+            case 0:
+                rate = 0;
+                break;
+            case 1:
+                rate = 50;
+                break;
+            case 2:
+                rate = 75;
+                break;
+            case 3:
+                rate = 110; // Real rate is actually 109.92
+                break;
+            case 4:
+                rate = 135; // Real rate is actually 134.58
+                break;
+            case 5:
+                rate = 150;
+                break;
+            case 6:
+                rate = 300;
+                break;
+            case 7:
+                rate = 600;
+                break;
+            case 8:
+                rate = 1200;
+                break;
+            case 9:
+                rate = 1800;
+                break;
+            case 10:
+                rate = 2400;
+                break;
+            case 11:
+                rate = 3600;
+                break;
+            case 12:
+                rate = 4800;
+                break;
+            case 13:
+                rate = 7200;
+                break;
+            case 14:
+                rate = 9600;
+                break;
+            case 15:
+                rate = 19200;
+                break;
         }
+
+        setBaudRate(rate);
     }
 
 
@@ -203,13 +204,16 @@ public class Acia6551 extends Acia {
 
 
     private synchronized void reset() {
-        txChar = 0;
-        txEmpty = true;
-        rxChar = 0;
-        rxFull = false;
-        receiveIrqEnabled = false;
-        transmitIrqEnabled = false;
-        interrupt = false;
-    }
+        // Figure 6 in the 6551 ACIA data sheet says the "program reset"
+        // event does not modify the control register.
 
+        // Figure 7 in the 6551 ACIA data sheet says the "program reset"
+        // event keeps the "parity check" configuration in the command
+        // register, but resets the other bits to defaults.
+        setCommandRegister((commandRegister & 0xe0) | 0x02);
+
+        // Figure 8 in the 6551 ACIA data sheet says the "program reset"
+        // event clears the "overrun" flag but otherwise has no effect.
+        overrun = false;
+    }
 }

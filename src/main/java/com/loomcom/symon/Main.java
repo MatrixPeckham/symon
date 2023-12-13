@@ -28,6 +28,7 @@ package com.loomcom.symon;
 import com.loomcom.symon.machines.MulticompMachine;
 import com.loomcom.symon.machines.SimpleMachine;
 import com.loomcom.symon.machines.SymonMachine;
+import com.loomcom.symon.machines.BenEaterMachine;
 import org.apache.commons.cli.*;
 
 import java.util.Locale;
@@ -52,6 +53,7 @@ public class Main {
         options.addOption(new Option("m", "machine", true, "Specify machine type."));
         options.addOption(new Option("c", "cpu", true, "Specify CPU type."));
         options.addOption(new Option("r", "rom", true, "Specify ROM file."));
+        options.addOption(new Option("b", "brk", false, "Halt on BRK"));
 
         CommandLineParser parser = new DefaultParser();
 
@@ -59,6 +61,7 @@ public class Main {
             CommandLine line = parser.parse(options, args);
             InstructionTable.CpuBehavior cpuBehavior = null;
             String romFile = null;
+            boolean haltOnBreak = false;
 
             if (line.hasOption("machine")) {
                 String machine = line.getOptionValue("machine").toLowerCase(Locale.ENGLISH);
@@ -71,6 +74,9 @@ public class Main {
                         break;
                     case "symon":
                         machineClass = SymonMachine.class;
+                        break;
+                    case "beneater":
+                        machineClass = BenEaterMachine.class;
                         break;
                     default:
                         System.err.println("Could not start Symon. Unknown machine type " + machine);
@@ -100,9 +106,13 @@ public class Main {
                 romFile = line.getOptionValue("rom");
             }
 
+            if (line.hasOption("brk")) {
+                haltOnBreak = true;
+            }
+
             while (true) {
                 if (machineClass == null) {
-                    Object[] possibilities = {"Symon", "Multicomp", "Simple"};
+                    Object[] possibilities = {"Symon", "Multicomp", "Simple", "BenEater"};
                     String s = (String)JOptionPane.showInputDialog(
                             null,
                             "Please choose the machine type to be emulated:",
@@ -117,6 +127,8 @@ public class Main {
                         machineClass = MulticompMachine.class;
                     } else if (s != null && s.equals("Simple")) {
                         machineClass = SimpleMachine.class;
+                    } else if (s != null && s.equals("BenEater")) {
+                        machineClass = BenEaterMachine.class;
                     } else {
                         machineClass = SymonMachine.class;
                     }
@@ -126,7 +138,7 @@ public class Main {
                     cpuBehavior = InstructionTable.CpuBehavior.NMOS_6502;
                 }
 
-                final Simulator simulator = new Simulator(machineClass, cpuBehavior, romFile);
+                final Simulator simulator = new Simulator(machineClass, cpuBehavior, romFile, haltOnBreak);
 
                 SwingUtilities.invokeLater(new Runnable() {
                     @Override
