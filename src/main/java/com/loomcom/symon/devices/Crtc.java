@@ -20,40 +20,48 @@
  * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-
 package com.loomcom.symon.devices;
 
 import com.loomcom.symon.exceptions.MemoryAccessException;
 import com.loomcom.symon.exceptions.MemoryRangeException;
-
 import java.io.IOException;
 
 /**
  * Simulation of a 6545 CRTC and virtual CRT output.
  */
 public class Crtc extends Device {
+
     // Memory locations in the CRTC address space
-    public static final int REGISTER_SELECT          = 0;
-    public static final int REGISTER_RW              = 1;
+    public static final int REGISTER_SELECT = 0;
+
+    public static final int REGISTER_RW = 1;
 
     // Registers
-    public static final int HORIZONTAL_DISPLAYED     = 1;
-    public static final int VERTICAL_DISPLAYED       = 6;
-    public static final int MODE_CONTROL             = 8;
-    public static final int SCAN_LINE                = 9;
-    public static final int CURSOR_START             = 10;
-    public static final int CURSOR_END               = 11;
-    public static final int DISPLAY_START_HIGH       = 12;
-    public static final int DISPLAY_START_LOW        = 13;
-    public static final int CURSOR_POSITION_HIGH     = 14;
-    public static final int CURSOR_POSITION_LOW      = 15;
+    public static final int HORIZONTAL_DISPLAYED = 1;
+
+    public static final int VERTICAL_DISPLAYED = 6;
+
+    public static final int MODE_CONTROL = 8;
+
+    public static final int SCAN_LINE = 9;
+
+    public static final int CURSOR_START = 10;
+
+    public static final int CURSOR_END = 11;
+
+    public static final int DISPLAY_START_HIGH = 12;
+
+    public static final int DISPLAY_START_LOW = 13;
+
+    public static final int CURSOR_POSITION_HIGH = 14;
+
+    public static final int CURSOR_POSITION_LOW = 15;
 
 
     /*
      * These will determine how the Character ROM is decoded,
      * and are Character ROM dependent.
      */
-
     // R1 - Horizontal Displayed
     private int horizontalDisplayed;
 
@@ -65,7 +73,9 @@ public class Crtc extends Device {
 
     // R10 - Cursor Start / Cursor Mode
     private int cursorStartLine;
+
     private boolean cursorEnabled;
+
     private int cursorBlinkRate;
 
     // R11 - Cursor End
@@ -84,12 +94,15 @@ public class Crtc extends Device {
 
     // Status bits
     private boolean rowColumnAddressing = false;
+
     private boolean displayEnableSkew = false;
+
     private boolean cursorSkew = false;
 
     private Memory memory;
 
-    public Crtc(int deviceAddress, Memory memory) throws MemoryRangeException, IOException {
+    public Crtc(int deviceAddress, Memory memory) throws MemoryRangeException,
+            IOException {
         super(deviceAddress, deviceAddress + 2, "CRTC");
         this.memory = memory;
 
@@ -142,7 +155,9 @@ public class Crtc extends Device {
 
     public int getCharAtAddress(int address) throws MemoryAccessException {
         // TODO: Row/Column addressing
-        return memory.read(address, false);
+        return this.getBus().read(address, false);
+        //return memory.read(address, false);
+
     }
 
     public int getHorizontalDisplayed() {
@@ -255,7 +270,8 @@ public class Crtc extends Device {
                 startAddress = ((data & 0xff) | (startAddress & 0xff00));
                 break;
             case CURSOR_POSITION_HIGH:
-                cursorPosition = ((data & 0xff) << 8) | (cursorPosition & 0x00ff);
+                cursorPosition = ((data & 0xff) << 8)
+                        | (cursorPosition & 0x00ff);
                 break;
             case CURSOR_POSITION_LOW:
                 cursorPosition = (data & 0xff) | (cursorPosition & 0xff00);
@@ -266,15 +282,17 @@ public class Crtc extends Device {
 
         if (startAddress + pageSize > memory.endAddress()) {
             startAddress = oldStartAddress;
-            throw new MemoryAccessException("Cannot draw screen starting at selected address.");
+            throw new MemoryAccessException(
+                    "Cannot draw screen starting at selected address.");
         }
 
         if (cursorPosition > memory.endAddress()) {
             cursorPosition = oldCursorPosition;
-            throw new MemoryAccessException("Cannot position cursor past end of memory.");
+            throw new MemoryAccessException(
+                    "Cannot position cursor past end of memory.");
         }
-
 
         notifyListeners();
     }
+
 }

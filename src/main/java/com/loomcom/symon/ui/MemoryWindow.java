@@ -20,40 +20,47 @@
  * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-
 package com.loomcom.symon.ui;
 
 import com.loomcom.symon.Bus;
 import com.loomcom.symon.exceptions.MemoryAccessException;
 import com.loomcom.symon.util.Utils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import javax.swing.table.AbstractTableModel;
-import javax.swing.table.DefaultTableCellRenderer;
-import javax.swing.table.TableModel;
-import javax.swing.text.JTextComponent;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.EventObject;
-
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.*;
+import javax.swing.text.JTextComponent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * This Frame displays the contents of a page of memory. The page number to be displayed
+ * This Frame displays the contents of a page of memory. The page number to be
+ * displayed
  * is selectable by the user.
  */
 public class MemoryWindow extends JFrame implements ActionListener {
 
-    private static final Logger logger = LoggerFactory.getLogger(MemoryWindow.class);
+    private static final Logger logger = LoggerFactory.getLogger(
+            MemoryWindow.class);
 
     private MemoryTableModel memoryTableModel;
+
     private JTable memoryTable;
+
     private JTextField pageNumberTextField;
+
     private JButton previousPageButton;
+
     private JButton nextPageButton;
+
+    private JButton saveButton;
+
+    private JButton loadButton;
+
+    private MemoryFileDialog memFileDialog;
 
     private static final Dimension MINIMUM_SIZE = new Dimension(320, 600);
 
@@ -67,6 +74,7 @@ public class MemoryWindow extends JFrame implements ActionListener {
 
     // The start/end columns of the ASCII view
     private static final int ASCII_COL_START = 9;
+
     private static final int ASCII_COL_END = 16;
 
     /**
@@ -115,6 +123,7 @@ public class MemoryWindow extends JFrame implements ActionListener {
      */
     private void createUi() {
         setTitle("Memory Contents");
+        memFileDialog = new MemoryFileDialog(this, true, memoryTableModel.bus);
         this.memoryTable = new MemoryTable(memoryTableModel);
 
         memoryTable.setDragEnabled(false);
@@ -132,7 +141,8 @@ public class MemoryWindow extends JFrame implements ActionListener {
         }
 
         for (int i = ASCII_COL_START; i <= ASCII_COL_END; i++) {
-            memoryTable.getColumnModel().getColumn(i).setMaxWidth(ASCII_COL_WIDTH);
+            memoryTable.getColumnModel().getColumn(i).setMaxWidth(
+                    ASCII_COL_WIDTH);
         }
 
         MemoryTableCellRenderer memoryTableCellRenderer = new MemoryTableCellRenderer();
@@ -142,7 +152,8 @@ public class MemoryWindow extends JFrame implements ActionListener {
 
         // Turn off tool-tips for the table.
         ToolTipManager.sharedInstance().unregisterComponent(memoryTable);
-        ToolTipManager.sharedInstance().unregisterComponent(memoryTable.getTableHeader());
+        ToolTipManager.sharedInstance().unregisterComponent(memoryTable.
+                getTableHeader());
 
         JLabel pageNumberLabel = new JLabel("Page");
         pageNumberTextField = new JTextField(8);
@@ -153,21 +164,40 @@ public class MemoryWindow extends JFrame implements ActionListener {
         nextPageButton.addActionListener(this);
         previousPageButton.addActionListener(this);
 
-        updateControls();
+        saveButton = new JButton("Save");
+        saveButton.addActionListener((ActionEvent e) -> {
+            memFileDialog.showSaveDialog(memoryTableModel.getPageNumber() << 8);
+        });
+        loadButton = new JButton("Load");
+        loadButton.addActionListener((ActionEvent e) -> {
+            memFileDialog.showLoadDialog(memoryTableModel.getPageNumber() << 8);
+        });
 
+        updateControls();
         JPanel controlPanel = new JPanel();
+        controlPanel.setLayout(new BorderLayout());
+        JPanel controlPanel2 = new JPanel();
+        JPanel controlPanel3 = new JPanel();
         JPanel memoryPanel = new JPanel();
         memoryPanel.setLayout(new BorderLayout());
         memoryPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
-        controlPanel.add(previousPageButton);
-        controlPanel.add(pageNumberLabel);
-        controlPanel.add(pageNumberTextField);
-        controlPanel.add(nextPageButton);
+        controlPanel2.add(previousPageButton);
+        controlPanel2.add(pageNumberLabel);
+        controlPanel2.add(pageNumberTextField);
+        controlPanel2.add(nextPageButton);
+        controlPanel.add(controlPanel2, BorderLayout.PAGE_START);
+
+        controlPanel3.add(loadButton);
+        controlPanel3.add(saveButton);
+
+        controlPanel.add(controlPanel3, BorderLayout.PAGE_END);
 
         JScrollPane scrollPane = new JScrollPane(memoryTable);
-        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.setVerticalScrollBarPolicy(
+                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.setHorizontalScrollBarPolicy(
+                JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
         memoryPanel.add(scrollPane, BorderLayout.CENTER);
 
@@ -248,17 +278,20 @@ public class MemoryWindow extends JFrame implements ActionListener {
 
             return result;
         }
+
     }
 
     private class MemoryTableCellRenderer extends DefaultTableCellRenderer {
 
         @Override
-        public Component getTableCellRendererComponent(JTable table, Object value,
-                                                       boolean isSelected, boolean hasFocus,
-                                                       int row, int col) {
-            final Component cell = super.getTableCellRendererComponent(table, value,
-                                                                       isSelected, hasFocus,
-                                                                       row, col);
+        public Component getTableCellRendererComponent(JTable table,
+                Object value,
+                boolean isSelected, boolean hasFocus,
+                int row, int col) {
+            final Component cell = super.getTableCellRendererComponent(table,
+                    value,
+                    isSelected, hasFocus,
+                    row, col);
 
             if (isSelected) {
                 cell.setBackground(Color.LIGHT_GRAY);
@@ -267,6 +300,7 @@ public class MemoryWindow extends JFrame implements ActionListener {
 
             return cell;
         }
+
     }
 
     /**
@@ -275,9 +309,11 @@ public class MemoryWindow extends JFrame implements ActionListener {
     private class MemoryTableModel extends AbstractTableModel {
 
         private Bus bus;
+
         private int pageNumber;
 
         private static final int COLUMN_COUNT = 17;
+
         private static final int ROW_COUNT = 32;
 
         public MemoryTableModel(Bus bus) {
@@ -331,10 +367,12 @@ public class MemoryWindow extends JFrame implements ActionListener {
                     return Utils.wordToHex(fullAddress(row, 1));
                 } else if (column < 9) {
                     // Display hex value of the data
-                    return Utils.byteToHex(bus.read(fullAddress(row, column), false));
+                    return Utils.byteToHex(bus.read(fullAddress(row, column),
+                            false));
                 } else {
                     // Display the ASCII equivalent (if printable)
-                    return Utils.byteToAscii(bus.read(fullAddress(row, column - 8), false));
+                    return Utils.byteToAscii(bus.read(fullAddress(row, column
+                            - 8), false));
                 }
             } catch (MemoryAccessException ex) {
                 return "??";
@@ -345,11 +383,12 @@ public class MemoryWindow extends JFrame implements ActionListener {
         public void setValueAt(Object o, int row, int column) {
             if (column > 0) {
                 try {
-                    String hexValue = (String)o;
+                    String hexValue = (String) o;
                     int fullAddress = fullAddress(row, column);
                     int newValue = Integer.parseInt(hexValue, 16) & 0xff;
                     bus.write(fullAddress, newValue);
-                } catch (MemoryAccessException | NumberFormatException | ClassCastException ex) {
+                } catch (MemoryAccessException | NumberFormatException
+                        | ClassCastException ex) {
                     // Intentionally swallow exception
                 }
                 fireTableCellUpdated(row, column);
@@ -364,4 +403,3 @@ public class MemoryWindow extends JFrame implements ActionListener {
     }
 
 }
-

@@ -20,25 +20,23 @@
  * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-
 package com.loomcom.symon;
+
+import static javax.swing.Action.SHORT_DESCRIPTION;
 
 import com.loomcom.symon.devices.Memory;
 import com.loomcom.symon.exceptions.*;
 import com.loomcom.symon.machines.Machine;
-import com.loomcom.symon.ui.*;
 import com.loomcom.symon.ui.Console;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.management.monitor.CounterMonitor;
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
+import com.loomcom.symon.ui.*;
+import com.loomcom.symon.ui.assembler.AssemblerWindow;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
-import java.util.SortedSet;
-import java.util.TreeSet;
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Symon Simulator Interface and Control.
@@ -50,15 +48,22 @@ import java.util.TreeSet;
  */
 public class Simulator {
 
-    private final static Logger logger = LoggerFactory.getLogger(Simulator.class.getName());
+    private final static Logger logger = LoggerFactory.getLogger(
+            Simulator.class.getName());
 
     // UI constants
     private static final int DEFAULT_FONT_SIZE = 12;
-    private static final Font DEFAULT_FONT = new Font(Font.MONOSPACED, Font.PLAIN, DEFAULT_FONT_SIZE);
+
+    private static final Font DEFAULT_FONT = new Font(Font.MONOSPACED,
+            Font.PLAIN, DEFAULT_FONT_SIZE);
+
     private static final int CONSOLE_BORDER_WIDTH = 10;
 
     // Clock periods, in NS, for each speed. 0MHz, 1MHz, 2MHz, 3MHz, 4MHz, 5MHz, 6MHz, 7MHz, 8MHz.
-    private static final long[] CLOCK_PERIODS = {0, 1000, 500, 333, 250, 200, 167, 143, 125};
+    private static final long[] CLOCK_PERIODS = {0, 1000, 500, 333, 250, 200,
+        167, 143, 125};
+
+    boolean addLFtoCR = true;
 
     // Since it is very expensive to update the UI with Swing's Event Dispatch Thread, we can't afford
     // to refresh the status view on every simulated clock cycle. Instead, we will only refresh the status view
@@ -81,6 +86,7 @@ public class Simulator {
     // A counter to keep track of the number of UI updates that have been
     // requested
     private int stepsSinceLastUpdate = 0;
+
     private int stepsSinceLastCrtcRefresh = 0;
 
     // The number of steps to run per click of the "Step" button
@@ -103,6 +109,8 @@ public class Simulator {
      */
     private final MemoryWindow memoryWindow;
 
+    private final AssemblerWindow assemblerWindow;
+
     private final VideoWindow videoWindow;
 
     private final BreakpointsWindow breakpointsWindow;
@@ -110,28 +118,24 @@ public class Simulator {
     private SimulatorMenu menuBar;
 
     private RunLoop runLoop;
+
     private Console console;
+
     private StatusPanel statusPane;
 
     private JButton runStopButton;
+
     private JButton stepButton;
+
     private JComboBox<String> stepCountBox;
 
     private JFileChooser fileChooser;
+
     private PreferencesDialog preferences;
 
     private Breakpoints breakpoints;
 
-    private final Object commandMonitorObject = new Object();
-
-    private MainCommand command = MainCommand.NONE;
-
     private boolean haltOnBreak;
-
-    public enum MainCommand {
-        NONE,
-        SELECTMACHINE
-    }
 
     /**
      * The list of step counts that will appear in the "Step" drop-down.
@@ -139,20 +143,22 @@ public class Simulator {
     private static final String[] STEPS = {"1", "5", "10", "20", "50", "100"};
 
     public Simulator(Class machineClass) throws Exception {
-        this(machineClass, InstructionTable.CpuBehavior.NMOS_6502, null, false);
+        this(machineClass, InstructionTable.CpuBehavior.CMOS_6502, null, false);
     }
 
     public Simulator(Class machineClass, InstructionTable.CpuBehavior cpuType,
-                     String romFile, boolean haltOnBreak) throws Exception {
+            String romFile, boolean haltOnBreak) throws Exception {
         this.haltOnBreak = haltOnBreak;
         this.breakpoints = new Breakpoints(this);
 
-        this.machine = (Machine) machineClass.getConstructors()[0].newInstance(romFile);
+        this.machine = (Machine) machineClass.getConstructors()[0].newInstance(
+                romFile);
         this.machine.getCpu().setBehavior(cpuType);
 
         // Initialize final fields in the constructor.
         this.traceLog = new TraceLog();
         this.memoryWindow = new MemoryWindow(machine.getBus());
+        this.assemblerWindow = new AssemblerWindow();
         this.breakpointsWindow = new BreakpointsWindow(breakpoints, mainWindow);
 
         if (machine.getCrtc() != null) {
@@ -169,10 +175,12 @@ public class Simulator {
         mainWindow = new JFrame();
         mainWindow.setTitle("6502 Simulator - " + machine.getName());
         mainWindow.setResizable(false);
+
         mainWindow.getContentPane().setLayout(new BorderLayout());
 
         // UI components used for I/O.
-        this.console = new com.loomcom.symon.ui.Console(80, 25, DEFAULT_FONT, false);
+        this.console = new com.loomcom.symon.ui.Console(80, 25, DEFAULT_FONT,
+                false);
         this.statusPane = new StatusPanel(machine);
 
         console.setBorderWidth(CONSOLE_BORDER_WIDTH);
@@ -196,16 +204,19 @@ public class Simulator {
 
         stepCountBox = new JComboBox<>(STEPS);
         stepCountBox.addActionListener(new ActionListener() {
+
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
                 try {
                     JComboBox cb = (JComboBox) actionEvent.getSource();
-                    stepsPerClick = Integer.parseInt((String) cb.getSelectedItem());
+                    stepsPerClick = Integer.parseInt((String) cb.
+                            getSelectedItem());
                 } catch (NumberFormatException ex) {
                     stepsPerClick = 1;
                     stepCountBox.setSelectedIndex(0);
                 }
             }
+
         });
 
         buttonContainer.add(runStopButton);
@@ -216,7 +227,8 @@ public class Simulator {
 
         // Left side - console
         consoleContainer.add(console, BorderLayout.CENTER);
-        mainWindow.getContentPane().add(consoleContainer, BorderLayout.LINE_START);
+        mainWindow.getContentPane().add(consoleContainer,
+                BorderLayout.LINE_START);
 
         // Right side - status pane
         mainWindow.getContentPane().add(statusPane, BorderLayout.LINE_END);
@@ -225,6 +237,7 @@ public class Simulator {
         mainWindow.getContentPane().add(buttonContainer, BorderLayout.PAGE_END);
 
         runStopButton.addActionListener(new ActionListener() {
+
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
                 if (runLoop != null && runLoop.isRunning()) {
@@ -233,29 +246,36 @@ public class Simulator {
                     Simulator.this.handleStart();
                 }
             }
+
         });
 
         stepButton.addActionListener(new ActionListener() {
+
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
                 Simulator.this.handleStep(stepsPerClick);
             }
+
         });
 
         softResetButton.addActionListener(new ActionListener() {
+
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
                 // If this was a CTRL-click, do a hard reset.
                 Simulator.this.handleReset(false);
             }
+
         });
 
         hardResetButton.addActionListener(new ActionListener() {
+
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
                 // If this was a CTRL-click, do a hard reset.
                 Simulator.this.handleReset(true);
             }
+
         });
 
         mainWindow.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
@@ -271,18 +291,6 @@ public class Simulator {
         console.requestFocus();
         handleReset(false);
     }
-
-    public MainCommand waitForCommand() {
-        synchronized (commandMonitorObject) {
-            try {
-                commandMonitorObject.wait();
-            } catch (InterruptedException ex) {
-                ex.printStackTrace();
-            }
-        }
-        return command;
-    }
-
 
     private void handleStart() {
         // Shift focus to the console.
@@ -358,7 +366,15 @@ public class Simulator {
         // output ready.
         if (machine.getAcia() != null && machine.getAcia().hasTxChar()) {
             // This is thread-safe
-            console.print(Character.toString((char) machine.getAcia().txRead(true)));
+            char ch = (char) machine.getAcia().txRead(
+                    true);
+            String str = Character.toString(ch);
+            if (addLFtoCR) {
+                if (ch == '\r') {
+                    str += '\n';
+                }
+            }
+            console.print(str);
             console.repaint();
         }
 
@@ -371,7 +387,8 @@ public class Simulator {
             logger.error("Console type-ahead buffer underrun!");
         }
 
-        if (videoWindow != null && stepsSinceLastCrtcRefresh++ > STEPS_BETWEEN_CRTC_REFRESHES) {
+        if (videoWindow != null && stepsSinceLastCrtcRefresh++
+                > STEPS_BETWEEN_CRTC_REFRESHES) {
             stepsSinceLastCrtcRefresh = 0;
             if (videoWindow.isVisible()) {
                 videoWindow.repaint();
@@ -390,13 +407,15 @@ public class Simulator {
     /**
      * Load a program into memory at the simulatorDidStart address.
      */
-    private void loadProgram(byte[] program, int startAddress) throws MemoryAccessException {
+    private void loadProgram(byte[] program, int startAddress) throws
+            MemoryAccessException {
         int addr = startAddress, i;
         for (i = 0; i < program.length; i++) {
             machine.getBus().write(addr++, program[i] & 0xff);
         }
 
-        logger.info("Loaded {} bytes at address 0x{}", i, Integer.toString(startAddress, 16));
+        logger.info("Loaded {} bytes at address 0x{}", i, Integer.toString(
+                startAddress, 16));
 
         // After loading, be sure to reset and
         // Reset (but don't clear memory, naturally)
@@ -413,6 +432,7 @@ public class Simulator {
      * The main run thread.
      */
     class RunLoop extends Thread {
+
         private boolean isRunning = false;
 
         public boolean isRunning() {
@@ -428,6 +448,7 @@ public class Simulator {
             isRunning = true;
 
             SwingUtilities.invokeLater(new Runnable() {
+
                 @Override
                 public void run() {
                     // Don't allow step while the simulator is running
@@ -437,6 +458,7 @@ public class Simulator {
                     // Toggle the state of the run button
                     runStopButton.setText("Stop");
                 }
+
             });
 
             try {
@@ -444,10 +466,13 @@ public class Simulator {
                     step();
                 } while (shouldContinue());
             } catch (SymonException ex) {
-                logger.error("Exception in main simulator run thread. Exiting run.", ex);
+                logger.error(
+                        "Exception in main simulator run thread. Exiting run.",
+                        ex);
             }
 
             SwingUtilities.invokeLater(new Runnable() {
+
                 @Override
                 public void run() {
                     statusPane.updateState();
@@ -461,6 +486,7 @@ public class Simulator {
                     menuBar.simulatorDidStop();
                     traceLog.simulatorDidStop();
                 }
+
             });
 
             isRunning = false;
@@ -470,17 +496,20 @@ public class Simulator {
          * @return True if the run loop should proceed to the next step.
          */
         private boolean shouldContinue() {
-            return !breakpoints.contains(machine.getCpu().getProgramCounter()) &&
-                    isRunning &&
-                    !(preferences.getHaltOnBreak() && machine.getCpu().getInstruction() == 0x00);
+            return !breakpoints.contains(machine.getCpu().getProgramCounter())
+                    && isRunning && !(preferences.getHaltOnBreak() && machine.
+                    getCpu().getInstruction() == 0x00);
         }
+
     }
 
-    public String disassembleOpAtAddress(int address) throws MemoryAccessException {
+    public String disassembleOpAtAddress(int address) throws
+            MemoryAccessException {
         return machine.getCpu().disassembleOpAtAddress(address);
     }
 
     class LoadProgramAction extends AbstractAction {
+
         public LoadProgramAction() {
             super("Load Program...", null);
             putValue(SHORT_DESCRIPTION, "Load a program into memory");
@@ -496,35 +525,40 @@ public class Simulator {
                         long fileSize = f.length();
 
                         if (fileSize > machine.getMemorySize()) {
-                            throw new IOException("File will not fit in " +
-                                    "available memory ($" +
-                                    Integer.toString(machine.getMemorySize(), 16) +
-                                    " bytes)");
+                            throw new IOException("File will not fit in "
+                                    + "available memory ($" + Integer.toString(
+                                            machine.getMemorySize(), 16)
+                                    + " bytes)");
                         } else {
                             byte[] program = new byte[(int) fileSize];
                             int i = 0;
                             FileInputStream fis = new FileInputStream(f);
-                            BufferedInputStream bis = new BufferedInputStream(fis);
+                            BufferedInputStream bis = new BufferedInputStream(
+                                    fis);
                             DataInputStream dis = new DataInputStream(bis);
                             while (dis.available() != 0) {
                                 program[i++] = dis.readByte();
                             }
 
                             // Now load the program at the starting address.
-                            loadProgram(program, preferences.getProgramStartAddress());
+                            loadProgram(program, preferences.
+                                    getProgramStartAddress());
 
                             SwingUtilities.invokeLater(new Runnable() {
+
                                 @Override
                                 public void run() {
                                     console.reset();
                                     breakpoints.refresh();
                                 }
+
                             });
 
                             // TODO: "Don't Show Again" checkbox
                             JOptionPane.showMessageDialog(mainWindow,
-                                    "Loaded Successfully At " +
-                                            String.format("$%04X", preferences.getProgramStartAddress()),
+                                    "Loaded Successfully At " + String.format(
+                                            "$%04X", preferences.
+                                                    getProgramStartAddress()),
                                     "OK",
                                     JOptionPane.PLAIN_MESSAGE);
                         }
@@ -532,15 +566,19 @@ public class Simulator {
                 }
             } catch (IOException ex) {
                 logger.error("Unable to read program file.", ex);
-                JOptionPane.showMessageDialog(mainWindow, ex.getMessage(), "Failure", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(mainWindow, ex.getMessage(),
+                        "Failure", JOptionPane.ERROR_MESSAGE);
             } catch (MemoryAccessException ex) {
                 logger.error("Memory access error loading program", ex);
-                JOptionPane.showMessageDialog(mainWindow, ex.getMessage(), "Failure", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(mainWindow, ex.getMessage(),
+                        "Failure", JOptionPane.ERROR_MESSAGE);
             }
         }
+
     }
 
     class LoadRomAction extends AbstractAction {
+
         public LoadRomAction() {
             super("Load ROM...", null);
             putValue(SHORT_DESCRIPTION, "Load a ROM image");
@@ -556,11 +594,15 @@ public class Simulator {
                         long fileSize = romFile.length();
 
                         if (fileSize != machine.getRomSize()) {
-                            throw new IOException("ROM file must be exactly " + String.valueOf(machine.getRomSize()) + " bytes.");
+                            throw new IOException("ROM file must be exactly "
+                                    + String.valueOf(machine.getRomSize())
+                                    + " bytes.");
                         }
 
                         // Load the new ROM image
-                        Memory rom = Memory.makeROM(machine.getRomBase(), machine.getRomBase() + machine.getRomSize() - 1, romFile);
+                        Memory rom = Memory.makeROM(machine.getRomBase(),
+                                machine.getRomBase() + machine.getRomSize() - 1,
+                                romFile);
                         machine.setRom(rom);
 
                         // Now, reset
@@ -571,12 +613,13 @@ public class Simulator {
                         // Refresh breakpoints to show new memory contents.
                         breakpoints.refresh();
 
-                        logger.info("ROM File `{}' loaded at {}", romFile.getName(),
+                        logger.info("ROM File `{}' loaded at {}", romFile.
+                                getName(),
                                 String.format("0x%04X", machine.getRomBase()));
                         // TODO: "Don't Show Again" checkbox
                         JOptionPane.showMessageDialog(mainWindow,
-                                "Loaded Successfully At " +
-                                        String.format("$%04X", machine.getRomBase()),
+                                "Loaded Successfully At " + String.format(
+                                        "$%04X", machine.getRomBase()),
                                 "OK",
                                 JOptionPane.PLAIN_MESSAGE);
 
@@ -584,18 +627,25 @@ public class Simulator {
                 }
             } catch (IOException ex) {
                 logger.error("Unable to read ROM file: {}", ex.getMessage());
-                JOptionPane.showMessageDialog(mainWindow, ex.getMessage(), "Failure", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(mainWindow, ex.getMessage(),
+                        "Failure", JOptionPane.ERROR_MESSAGE);
             } catch (MemoryRangeException ex) {
-                logger.error("Memory range error while loading ROM file: {}", ex.getMessage());
-                JOptionPane.showMessageDialog(mainWindow, ex.getMessage(), "Failure", JOptionPane.ERROR_MESSAGE);
+                logger.error("Memory range error while loading ROM file: {}",
+                        ex.getMessage());
+                JOptionPane.showMessageDialog(mainWindow, ex.getMessage(),
+                        "Failure", JOptionPane.ERROR_MESSAGE);
             } catch (MemoryAccessException ex) {
-                logger.error("Memory access error while loading ROM file: {}", ex.getMessage());
-                JOptionPane.showMessageDialog(mainWindow, ex.getMessage(), "Failure", JOptionPane.ERROR_MESSAGE);
+                logger.error("Memory access error while loading ROM file: {}",
+                        ex.getMessage());
+                JOptionPane.showMessageDialog(mainWindow, ex.getMessage(),
+                        "Failure", JOptionPane.ERROR_MESSAGE);
             }
         }
+
     }
 
     class ShowPrefsAction extends AbstractAction {
+
         public ShowPrefsAction() {
             super("Preferences...", null);
             putValue(SHORT_DESCRIPTION, "Show Preferences Dialog");
@@ -605,35 +655,11 @@ public class Simulator {
         public void actionPerformed(ActionEvent actionEvent) {
             preferences.getDialog().setVisible(true);
         }
-    }
 
-    class SelectMachineAction extends AbstractAction {
-        public SelectMachineAction() {
-            super("Switch emulated machine...", null);
-            putValue(SHORT_DESCRIPTION, "Select the type of the machine to be emulated");
-            putValue(MNEMONIC_KEY, KeyEvent.VK_M);
-        }
-
-        public void actionPerformed(ActionEvent actionEvent) {
-            if (runLoop != null) {
-                runLoop.requestStop();
-            }
-
-            memoryWindow.dispose();
-            traceLog.dispose();
-            if (videoWindow != null) {
-                videoWindow.dispose();
-            }
-            mainWindow.dispose();
-
-            command = MainCommand.SELECTMACHINE;
-            synchronized (commandMonitorObject) {
-                commandMonitorObject.notifyAll();
-            }
-        }
     }
 
     class QuitAction extends AbstractAction {
+
         public QuitAction() {
             super("Quit", null);
             putValue(SHORT_DESCRIPTION, "Exit the Simulator");
@@ -647,9 +673,11 @@ public class Simulator {
             }
             System.exit(0);
         }
+
     }
 
     class SetFontAction extends AbstractAction {
+
         private int size;
 
         public SetFontAction(int size) {
@@ -660,22 +688,27 @@ public class Simulator {
 
         public void actionPerformed(ActionEvent actionEvent) {
             SwingUtilities.invokeLater(new Runnable() {
+
                 @Override
                 public void run() {
                     console.setFont(new Font("Monospaced", Font.PLAIN, size));
                     mainWindow.pack();
                 }
+
             });
         }
+
     }
 
     class SetSpeedAction extends AbstractAction {
+
         private int speed;
 
         public SetSpeedAction(int speed) {
             super(Integer.toString(speed) + " MHz", null);
             this.speed = speed;
-            putValue(SHORT_DESCRIPTION, "Set simulated speed to " + speed + " MHz.");
+            putValue(SHORT_DESCRIPTION, "Set simulated speed to " + speed
+                    + " MHz.");
         }
 
         @Override
@@ -686,24 +719,11 @@ public class Simulator {
 
             machine.getCpu().setClockPeriodInNs(CLOCK_PERIODS[speed]);
         }
-    }
 
-    class SetCpuAction extends AbstractAction {
-        private Cpu.CpuBehavior behavior;
-
-        public SetCpuAction(String cpu, Cpu.CpuBehavior behavior) {
-            super(cpu, null);
-            this.behavior = behavior;
-            putValue(SHORT_DESCRIPTION, "Set CPU to " + cpu);
-        }
-
-        @Override
-        public void actionPerformed(ActionEvent actionEvent) {
-            machine.getCpu().setBehavior(behavior);
-        }
     }
 
     class ToggleTraceWindowAction extends AbstractAction {
+
         public ToggleTraceWindowAction() {
             super("Trace Log", null);
             putValue(SHORT_DESCRIPTION, "Show or Hide the Trace Log Window");
@@ -719,9 +739,11 @@ public class Simulator {
                 }
             }
         }
+
     }
 
     class ToggleMemoryWindowAction extends AbstractAction {
+
         public ToggleMemoryWindowAction() {
             super("Memory Window", null);
             putValue(SHORT_DESCRIPTION, "Show or Hide the Memory Window");
@@ -736,9 +758,30 @@ public class Simulator {
                 }
             }
         }
+
+    }
+
+    class ToggleAssemblerWindowAction extends AbstractAction {
+
+        public ToggleAssemblerWindowAction() {
+            super("Assembler Window", null);
+            putValue(SHORT_DESCRIPTION, "Show or Hide the Assembler Window");
+        }
+
+        public void actionPerformed(ActionEvent actionEvent) {
+            synchronized (assemblerWindow) {
+                if (assemblerWindow.isVisible()) {
+                    assemblerWindow.setVisible(false);
+                } else {
+                    assemblerWindow.setVisible(true);
+                }
+            }
+        }
+
     }
 
     class ToggleVideoWindowAction extends AbstractAction {
+
         public ToggleVideoWindowAction() {
             super("Video Window", null);
             putValue(SHORT_DESCRIPTION, "Show or Hide the Video Window");
@@ -753,9 +796,11 @@ public class Simulator {
                 }
             }
         }
+
     }
 
     class ToggleBreakpointWindowAction extends AbstractAction {
+
         public ToggleBreakpointWindowAction() {
             super("Breakpoints...", null);
             putValue(SHORT_DESCRIPTION, "Show or Hide Breakpoints");
@@ -770,11 +815,14 @@ public class Simulator {
                 }
             }
         }
+
     }
 
     class SimulatorMenu extends JMenuBar {
+
         // Menu Items
         private JMenuItem loadProgramItem;
+
         private JMenuItem loadRomItem;
 
         /**
@@ -785,7 +833,8 @@ public class Simulator {
         }
 
         /**
-         * Disable menu items that should not be available during simulator execution.
+         * Disable menu items that should not be available during simulator
+         * execution.
          */
         public void simulatorDidStart() {
             loadProgramItem.setEnabled(false);
@@ -795,7 +844,8 @@ public class Simulator {
         }
 
         /**
-         * Enable menu items that should be available while the simulator is stopped.
+         * Enable menu items that should be available while the simulator is
+         * stopped.
          */
         public void simulatorDidStop() {
             loadProgramItem.setEnabled(true);
@@ -832,7 +882,6 @@ public class Simulator {
             /*
              * View Menu
              */
-
             JMenu viewMenu = new JMenu("View");
             JMenu fontSubMenu = new JMenu("Console Font Size");
             ButtonGroup fontSizeGroup = new ButtonGroup();
@@ -849,33 +898,48 @@ public class Simulator {
             makeFontSizeMenuItem(20, fontSubMenu, fontSizeGroup);
             viewMenu.add(fontSubMenu);
 
-            final JCheckBoxMenuItem showTraceLog = new JCheckBoxMenuItem(new ToggleTraceWindowAction());
+            final JCheckBoxMenuItem showTraceLog = new JCheckBoxMenuItem(
+                    new ToggleTraceWindowAction());
             // Un-check the menu item if the user closes the window directly
             traceLog.addWindowListener(new WindowAdapter() {
+
                 @Override
                 public void windowClosing(WindowEvent e) {
                     showTraceLog.setSelected(false);
                 }
+
             });
             viewMenu.add(showTraceLog);
 
-            final JCheckBoxMenuItem showMemoryTable = new JCheckBoxMenuItem(new ToggleMemoryWindowAction());
+            final JCheckBoxMenuItem showAssembler = new JCheckBoxMenuItem(
+                    new ToggleAssemblerWindowAction());
+            assemblerWindow.addWindowListener(new WindowAdapter() {
+            });
+            viewMenu.add(showAssembler);
+
+            final JCheckBoxMenuItem showMemoryTable = new JCheckBoxMenuItem(
+                    new ToggleMemoryWindowAction());
             // Un-check the menu item if the user closes the window directly
             memoryWindow.addWindowListener(new WindowAdapter() {
+
                 @Override
                 public void windowClosing(WindowEvent e) {
                     showMemoryTable.setSelected(false);
                 }
+
             });
             viewMenu.add(showMemoryTable);
 
             if (videoWindow != null) {
-                final JCheckBoxMenuItem showVideoWindow = new JCheckBoxMenuItem(new ToggleVideoWindowAction());
+                final JCheckBoxMenuItem showVideoWindow = new JCheckBoxMenuItem(
+                        new ToggleVideoWindowAction());
                 videoWindow.addWindowListener(new WindowAdapter() {
+
                     @Override
                     public void windowClosing(WindowEvent e) {
                         showVideoWindow.setSelected(false);
                     }
+
                 });
                 viewMenu.add(showVideoWindow);
             }
@@ -885,21 +949,7 @@ public class Simulator {
             /*
              * Simulator Menu
              */
-
-
             JMenu simulatorMenu = new JMenu("Simulator");
-
-            // "Select Machine..." item.
-            JMenuItem selectMachineItem = new JMenuItem(new SelectMachineAction());
-            simulatorMenu.add(selectMachineItem);
-
-            // "CPU" sub-menu
-            JMenu cpuTypeMenu = new JMenu("CPU");
-            ButtonGroup cpuGroup = new ButtonGroup();
-
-            makeCpuMenuItem("6502", Cpu.CpuBehavior.NMOS_6502, cpuTypeMenu, cpuGroup);
-            makeCpuMenuItem("65C02", Cpu.CpuBehavior.CMOS_6502, cpuTypeMenu, cpuGroup);
-            makeCpuMenuItem("65C816", Cpu.CpuBehavior.CMOS_65816, cpuTypeMenu, cpuGroup);
 
             // "Clock Speed" sub-menu
             JMenu speedSubMenu = new JMenu("Clock Speed");
@@ -911,23 +961,26 @@ public class Simulator {
             makeSpeedMenuItem(8, speedSubMenu, speedGroup);
 
             simulatorMenu.add(speedSubMenu);
-            simulatorMenu.add(cpuTypeMenu);
 
             // "Breakpoints"
-            final JCheckBoxMenuItem showBreakpoints = new JCheckBoxMenuItem(new ToggleBreakpointWindowAction());
+            final JCheckBoxMenuItem showBreakpoints = new JCheckBoxMenuItem(
+                    new ToggleBreakpointWindowAction());
             // Un-check the menu item if the user closes the window directly
             breakpointsWindow.addWindowListener(new WindowAdapter() {
+
                 @Override
                 public void windowClosing(WindowEvent e) {
                     showBreakpoints.setSelected(false);
                 }
+
             });
             simulatorMenu.add(showBreakpoints);
 
             add(simulatorMenu);
         }
 
-        private void makeFontSizeMenuItem(int size, JMenu subMenu, ButtonGroup group) {
+        private void makeFontSizeMenuItem(int size, JMenu subMenu,
+                ButtonGroup group) {
             Action action = new SetFontAction(size);
 
             JCheckBoxMenuItem item = new JCheckBoxMenuItem(action);
@@ -936,7 +989,8 @@ public class Simulator {
             group.add(item);
         }
 
-        private void makeSpeedMenuItem(int speed, JMenu subMenu, ButtonGroup group) {
+        private void makeSpeedMenuItem(int speed, JMenu subMenu,
+                ButtonGroup group) {
             if (speed < 1 || speed > CLOCK_PERIODS.length - 1) {
                 return;
             }
@@ -944,17 +998,8 @@ public class Simulator {
             Action action = new SetSpeedAction(speed);
 
             JCheckBoxMenuItem item = new JCheckBoxMenuItem(action);
-            item.setSelected(CLOCK_PERIODS[speed] == Cpu.DEFAULT_CLOCK_PERIOD_IN_NS);
-            subMenu.add(item);
-            group.add(item);
-        }
-
-        private void makeCpuMenuItem(String cpu, Cpu.CpuBehavior behavior, JMenu subMenu, ButtonGroup group) {
-
-            Action action = new SetCpuAction(cpu, behavior);
-
-            JCheckBoxMenuItem item = new JCheckBoxMenuItem(action);
-            item.setSelected(machine.getCpu().getBehavior() == behavior);
+            item.setSelected(CLOCK_PERIODS[speed]
+                    == Cpu.DEFAULT_CLOCK_PERIOD_IN_NS);
             subMenu.add(item);
             group.add(item);
         }
@@ -964,6 +1009,7 @@ public class Simulator {
     private void updateVisibleState() {
         // Immediately update the UI.
         SwingUtilities.invokeLater(new Runnable() {
+
             @Override
             public void run() {
                 // Now update the state
@@ -973,6 +1019,7 @@ public class Simulator {
                     traceLog.refresh();
                 }
             }
+
         });
     }
 

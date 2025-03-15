@@ -21,36 +21,32 @@
  * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-
-
 package com.loomcom.symon;
 
-import com.loomcom.symon.machines.MulticompMachine;
-import com.loomcom.symon.machines.SimpleMachine;
-import com.loomcom.symon.machines.SymonMachine;
-import com.loomcom.symon.machines.BenEaterMachine;
-import org.apache.commons.cli.*;
+import static com.loomcom.symon.InstructionTable.CpuBehavior.CMOS_6502;
 
+import com.loomcom.symon.machines.*;
 import java.util.Locale;
-import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
+import org.apache.commons.cli.*;
 
 public class Main {
-    
-     /**
+
+    /**
      * Main entry point to the simulator. Creates a simulator and shows the main
      * window.
      *
      * @param args Program arguments
      */
     public static void main(String[] args) throws Exception {
-        
+
         Class machineClass = SymonMachine.class;
 
         Options options = new Options();
 
-        options.addOption(new Option("m", "machine", true, "Specify machine type."));
+        options.addOption(new Option("m", "machine", true,
+                "Specify machine type."));
         options.addOption(new Option("c", "cpu", true, "Specify CPU type."));
         options.addOption(new Option("r", "rom", true, "Specify ROM file."));
         options.addOption(new Option("b", "brk", false, "Halt on BRK"));
@@ -59,12 +55,13 @@ public class Main {
 
         try {
             CommandLine line = parser.parse(options, args);
-            InstructionTable.CpuBehavior cpuBehavior = null;
+            InstructionTable.CpuBehavior cpuBehavior = CMOS_6502;
             String romFile = null;
             boolean haltOnBreak = false;
 
             if (line.hasOption("machine")) {
-                String machine = line.getOptionValue("machine").toLowerCase(Locale.ENGLISH);
+                String machine = line.getOptionValue("machine").toLowerCase(
+                        Locale.ENGLISH);
                 switch (machine) {
                     case "multicomp":
                         machineClass = MulticompMachine.class;
@@ -79,13 +76,16 @@ public class Main {
                         machineClass = BenEaterMachine.class;
                         break;
                     default:
-                        System.err.println("Could not start Symon. Unknown machine type " + machine);
+                        System.err.println(
+                                "Could not start Symon. Unknown machine type "
+                                + machine);
                         return;
                 }
             }
 
             if (line.hasOption("cpu")) {
-                String cpu = line.getOptionValue("cpu").toLowerCase(Locale.ENGLISH);
+                String cpu = line.getOptionValue("cpu").toLowerCase(
+                        Locale.ENGLISH);
                 switch (cpu) {
                     case "6502":
                         cpuBehavior = InstructionTable.CpuBehavior.NMOS_6502;
@@ -97,7 +97,8 @@ public class Main {
                         cpuBehavior = InstructionTable.CpuBehavior.CMOS_65816;
                         break;
                     default:
-                        System.err.println("Could not start Symon. Unknown cpu type " + cpu);
+                        System.err.println(
+                                "Could not start Symon. Unknown cpu type " + cpu);
                         return;
                 }
             }
@@ -110,60 +111,29 @@ public class Main {
                 haltOnBreak = true;
             }
 
-            while (true) {
-                if (machineClass == null) {
-                    Object[] possibilities = {"Symon", "Multicomp", "Simple", "BenEater"};
-                    String s = (String)JOptionPane.showInputDialog(
-                            null,
-                            "Please choose the machine type to be emulated:",
-                            "Machine selection",
-                            JOptionPane.PLAIN_MESSAGE,
-                            null,
-                            possibilities,
-                            "Symon");
+            final Simulator simulator = new Simulator(machineClass, cpuBehavior,
+                    romFile, haltOnBreak);
 
+            SwingUtilities.invokeLater(new Runnable() {
 
-                    if (s != null && s.equals("Multicomp")) {
-                        machineClass = MulticompMachine.class;
-                    } else if (s != null && s.equals("Simple")) {
-                        machineClass = SimpleMachine.class;
-                    } else if (s != null && s.equals("BenEater")) {
-                        machineClass = BenEaterMachine.class;
-                    } else {
-                        machineClass = SymonMachine.class;
+                @Override
+                public void run() {
+                    try {
+                        UIManager.setLookAndFeel(UIManager.
+                                getSystemLookAndFeelClassName());
+                        // Create the main UI window
+                        simulator.createAndShowUi();
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
                 }
 
-                if (cpuBehavior == null) {
-                    cpuBehavior = InstructionTable.CpuBehavior.NMOS_6502;
-                }
+            });
 
-                final Simulator simulator = new Simulator(machineClass, cpuBehavior, romFile, haltOnBreak);
-
-                SwingUtilities.invokeLater(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-                            // Create the main UI window
-                            simulator.createAndShowUi();
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-                });
-
-
-                Simulator.MainCommand cmd = simulator.waitForCommand();
-
-                if (cmd.equals(Simulator.MainCommand.SELECTMACHINE)) {
-                    machineClass = null;
-                } else {
-                    break;
-                }
-            }
         } catch (ParseException ex) {
-            System.err.println("Could not start Symon. Reason: " + ex.getMessage());
+            System.err.println("Could not start Symon. Reason: " + ex.
+                    getMessage());
         }
     }
+
 }

@@ -21,17 +21,11 @@
  * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-
-
 package com.loomcom.symon.devices;
 
 import com.loomcom.symon.exceptions.MemoryAccessException;
 import com.loomcom.symon.exceptions.MemoryRangeException;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.RandomAccessFile;
+import java.io.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -45,33 +39,48 @@ public class SdController extends Device {
         IDLE,
         READ,
         WRITE
+
     }
 
     public static final int CONTROLLER_SIZE = 8;
+
     private final int SECTOR_SIZE = 512;
-    private final static Logger logger = Logger.getLogger(SdController.class.getName());
+
+    private final static Logger logger = Logger.getLogger(SdController.class.
+            getName());
 
     private File sdImageFile;
+
     private int lba0, lba1, lba2;
+
     private int position;
+
     private Status status = Status.IDLE;
 
     private final byte[] readBuffer = new byte[SECTOR_SIZE];
-    private final byte[] writeBuffer = new byte[SECTOR_SIZE];
-    private int readPosition = 0;
-    private int writePosition = 0;
 
+    private final byte[] writeBuffer = new byte[SECTOR_SIZE];
+
+    private int readPosition = 0;
+
+    private int writePosition = 0;
 
     public SdController(int address) throws MemoryRangeException {
         super(address, address + CONTROLLER_SIZE - 1, "SDCONTROLLER");
 
         sdImageFile = new File("sd.img");
         if (!sdImageFile.exists()) {
-            sdImageFile = null;
             logger.log(Level.INFO, "Could not find SD card image 'sd.img'");
+            try {
+                sdImageFile.createNewFile();
+                logger.log(Level.INFO, "Creating: " + sdImageFile.
+                        getAbsolutePath());
+            } catch (IOException ex) {
+                logger.log(Level.INFO, "Could not create sd image file.");
+            }
+            //sdImageFile = null;
         }
     }
-
 
     @Override
     public void write(int address, int data) throws MemoryAccessException {
@@ -122,11 +131,13 @@ public class SdController extends Device {
                 fis.skip(this.position);
                 int read = fis.read(readBuffer);
                 if (read < SECTOR_SIZE) {
-                    logger.log(Level.WARNING, "not enough data to fill read buffer from SD image file");
+                    logger.log(Level.WARNING,
+                            "not enough data to fill read buffer from SD image file");
                 }
                 fis.close();
             } catch (IOException ex) {
-                logger.log(Level.WARNING, "could not fill read buffer from SD image file", ex);
+                logger.log(Level.WARNING,
+                        "could not fill read buffer from SD image file", ex);
             }
         }
     }
@@ -136,7 +147,6 @@ public class SdController extends Device {
         this.writePosition = 0;
         computePosition();
     }
-
 
     private int readData() {
         if (status != Status.READ) {
@@ -162,12 +172,14 @@ public class SdController extends Device {
         if (writePosition >= SECTOR_SIZE) {
             if (sdImageFile != null) {
                 try {
-                    RandomAccessFile raf = new RandomAccessFile(sdImageFile, "rw");
+                    RandomAccessFile raf = new RandomAccessFile(sdImageFile,
+                            "rw");
                     raf.skipBytes(this.position);
                     raf.write(writeBuffer, 0, writeBuffer.length);
                     raf.close();
                 } catch (IOException ex) {
-                    logger.log(Level.WARNING, "could not write data back to SD image file!", ex);
+                    logger.log(Level.WARNING,
+                            "could not write data back to SD image file!", ex);
                 }
             }
 
@@ -204,7 +216,8 @@ public class SdController extends Device {
 
     @Override
     public String toString() {
-        return getName() + "@" + String.format("%04X", this.getMemoryRange().startAddress);
+        return getName() + "@" + String.format("%04X",
+                this.getMemoryRange().startAddress);
     }
 
 }

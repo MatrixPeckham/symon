@@ -79,8 +79,8 @@
                 <version>3.7.0</version>
                 <configuration>
                     <compilerArgument>-Xlint:unchecked</compilerArgument>
-                    <source>11</source>
-                    <target>11</target>
+                    <source>8</source>
+                    <target>8</target>
                 </configuration>
             </plugin>
 
@@ -92,7 +92,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.loomcom.symon.Simulator</mainClass>
+                            <mainClass>com.loomcom.symon.Main</mainClass>
                             <packageName>com.loomcom.symon</packageName>
                         </manifest>
                         <manifestEntries>
