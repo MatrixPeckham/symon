@@ -115,6 +115,7 @@ public class Main {
 
             if (line.hasOption("brk")) {
                 haltOnBreak = true;
+            while (true) {
                 if (machineClass == null) {
                     Object[] possibilities = {"Symon", "Multicomp", "Simple"};
                     String s = (String) JOptionPane.showInputDialog(
@@ -132,6 +133,39 @@ public class Main {
                         machineClass = SimpleMachine.class;
                     } else {
                         machineClass = SymonMachine.class;
+                    }
+                }
+
+                if (cpuBehavior == null) {
+                    cpuBehavior = InstructionTable.CpuBehavior.NMOS_6502;
+                }
+
+                final Simulator simulator = new Simulator(machineClass,
+                        cpuBehavior, romFile);
+
+                SwingUtilities.invokeLater(new Runnable() {
+
+                    @Override
+                    public void run() {
+                        try {
+                            UIManager.setLookAndFeel(UIManager.
+                                    getSystemLookAndFeelClassName());
+                            // Create the main UI window
+                            simulator.createAndShowUi();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+
+                });
+
+                Simulator.MainCommand cmd = simulator.waitForCommand();
+
+                if (cmd.equals(Simulator.MainCommand.SELECTMACHINE)) {
+                    machineClass = null;
+                } else {
+                    break;
+                }
             }
 
             final Simulator simulator = new Simulator(machineClass, cpuBehavior,
