@@ -31,6 +31,12 @@ import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import org.apache.commons.cli.*;
 
+
+import com.loomcom.symon.machines.*;
+import java.util.Locale;
+import javax.swing.*;
+import org.apache.commons.cli.*;
+
 public class Main {
 
     /**
@@ -109,6 +115,23 @@ public class Main {
 
             if (line.hasOption("brk")) {
                 haltOnBreak = true;
+                if (machineClass == null) {
+                    Object[] possibilities = {"Symon", "Multicomp", "Simple"};
+                    String s = (String) JOptionPane.showInputDialog(
+                            null,
+                            "Please choose the machine type to be emulated:",
+                            "Machine selection",
+                            JOptionPane.PLAIN_MESSAGE,
+                            null,
+                            possibilities,
+                            "Symon");
+
+                    if (s != null && s.equals("Multicomp")) {
+                        machineClass = MulticompMachine.class;
+                    } else if (s != null && s.equals("Simple")) {
+                        machineClass = SimpleMachine.class;
+                    } else {
+                        machineClass = SymonMachine.class;
             }
 
             final Simulator simulator = new Simulator(machineClass, cpuBehavior,
